@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import secrets
+import threading
+import time
 from urllib.parse import urlsplit
 
 import psycopg
@@ -19,6 +21,9 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger('cyberlocal')
 DB_URL = os.environ.get('DATABASE_URL', '')
 TOKEN = secrets.token_urlsafe(32)
+AGENT_TOKEN = os.environ.get('ESP32_AGENT_TOKEN', '')
+agent_lock = threading.Lock()
+agent_state = {'last_seen': 0.0, 'job': None, 'error': ''}
 
 
 def db():
@@ -30,6 +35,7 @@ async def lifespan(app):
     try:
         with db() as conn:
             conn.execute('CREATE TABLE IF NOT EXISTS scans (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT NOT NULL, size BIGINT NOT NULL, digest TEXT NOT NULL, result TEXT NOT NULL, detail TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())')
+            conn.execute('CREATE TABLE IF NOT EXISTS radio_scans (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, kind TEXT NOT NULL, payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())')
             conn.execute('CREATE TABLE IF NOT EXISTS cves (id TEXT PRIMARY KEY, payload JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())')
     except psycopg.Error:
         LOG.warning('Base indisponible au démarrage')
@@ -98,7 +104,7 @@ def home():
 
 @app.get('/analyse')
 def analyse_page():
-    return page('Analyse de fichier', f'''<p>Le fichier reste en mémoire et n’est ni exécuté ni conservé. Limite : 20 Mio.</p><form action="/analyse" method="post" enctype="multipart/form-data">{token_input()}<label>Choisir un fichier <input required type="file" name="fichier"></label><button>Analyser</button></form><p>Une absence de détection ne prouve jamais qu’un fichier est sûr. Les analyses sans détection sont indiquées comme incomplètes tant que les limites du moteur ne sont pas vérifiées.</p>''')
+    return page('Analyse de fichier', f'''<p>Le fichier est traité temporairement, sans être exécuté ni conservé volontairement. Limite : 20 Mio.</p><form action="/analyse" method="post" enctype="multipart/form-data">{token_input()}<label>Choisir un fichier <input required type="file" name="fichier"></label><button>Analyser</button></form><p>Une absence de détection ne prouve jamais qu’un fichier est sûr. Les analyses sans détection sont indiquées comme incomplètes tant que les limites du moteur ne sont pas vérifiées.</p>''')
 
 
 @app.post('/analyse')
@@ -197,9 +203,115 @@ async def history_delete(request: Request):
     return RedirectResponse('/historique', status_code=303)
 
 
+def agent_authorized(request):
+    value = request.headers.get('authorization', '')
+    return len(AGENT_TOKEN) >= 32 and secrets.compare_digest(value, 'Bearer ' + AGENT_TOKEN)
+
+
+def agent_online():
+    return time.monotonic() - agent_state['last_seen'] < 15
+
+
 @app.get('/esp32')
 def esp32():
-    return page('Wi-Fi et Bluetooth', '<p>Scans indisponibles : le modèle exact de l’ESP32 et son firmware ne sont pas encore connus. Aucune détection simulée n’est affichée comme réelle.</p>')
+    with agent_lock:
+        state = 'Connecté' if agent_online() else 'Déconnecté ou en attente'
+        pending = agent_state['job']
+        last_error = agent_state['error']
+    try:
+        with db() as conn:
+            rows = conn.execute('SELECT kind,payload,created_at FROM radio_scans ORDER BY id DESC LIMIT 20').fetchall()
+    except psycopg.Error:
+        return unavailable()
+    details = []
+    for kind, items, date in rows:
+        lines = ''.join('<li>' + ' · '.join(f'{e(k)} : {e(v)}' for k, v in item.items()) + '</li>' for item in items)
+        details.append(f'<article><h2>{e(kind.upper())} — {e(date)}</h2><p>{len(items)} résultat(s), maximum 50.</p><ul>{lines}</ul></article>')
+    return page('Wi-Fi et Bluetooth', f'''<p>Agent : {e(state)}. {"Scan en cours." if pending else ""}</p><p>{e(last_error)}</p><p>Détection uniquement : les appareils silencieux peuvent être absents, leurs adresses BLE peuvent changer et un appareil détecté n’est pas nécessairement vulnérable. Wi-Fi 2,4 GHz et BLE uniquement.</p><form action="/esp32/scan" method="post">{token_input()}<button name="kind" value="wifi">Scanner le Wi-Fi</button><button name="kind" value="ble">Scanner le Bluetooth BLE</button></form><p><a href="/esp32">Actualiser l’état et les résultats</a></p>{''.join(details) or '<p>Aucun scan enregistré.</p>'}<p><a href="/esp32/supprimer">Supprimer les résultats Wi-Fi et BLE</a></p>''')
+
+
+@app.get('/esp32/supprimer')
+def radio_delete_confirm():
+    return page('Supprimer les scans radio', f'<p>Cette action efface tous les résultats Wi-Fi et BLE enregistrés, sans supprimer les analyses de fichiers ni les CVE.</p><form action="/esp32/supprimer" method="post">{token_input()}<button>Confirmer la suppression</button></form><a href="/esp32">Annuler</a>')
+
+
+@app.post('/esp32/supprimer')
+async def radio_delete(request: Request):
+    form = await request.form(max_fields=4)
+    if not verify(form):
+        return HTMLResponse('Requête refusée.', status_code=403)
+    try:
+        with db() as conn:
+            conn.execute('DELETE FROM radio_scans')
+    except psycopg.Error:
+        return unavailable()
+    return RedirectResponse('/esp32', status_code=303)
+
+
+@app.post('/esp32/scan')
+async def radio_request(request: Request):
+    form = await request.form(max_fields=4)
+    if not verify(form):
+        return HTMLResponse('Requête refusée.', status_code=403)
+    kind = str(form.get('kind', ''))
+    if kind not in ('wifi', 'ble'):
+        return HTMLResponse('Type de scan invalide.', status_code=400)
+    with agent_lock:
+        if not agent_online():
+            return page('Agent déconnecté', '<p>Connectez la carte et démarrez l’agent Windows avant de lancer un scan.</p><a href="/esp32">Retour</a>')
+        if agent_state['job']:
+            return page('Scan en cours', '<p>Un scan est déjà en cours.</p><a href="/esp32">Retour</a>')
+        agent_state['error'] = ''
+        agent_state['job'] = {'id': secrets.token_urlsafe(12), 'kind': kind, 'claimed': False, 'started': time.monotonic()}
+    return page('Scan demandé', '<p>Le scan est en cours. Patientez quelques secondes puis <a href="/esp32">actualisez les résultats</a>.</p>')
+
+
+@app.post('/agent/next')
+async def agent_next(request: Request):
+    if not agent_authorized(request):
+        return HTMLResponse('Non autorisé', status_code=403)
+    with agent_lock:
+        agent_state['last_seen'] = time.monotonic()
+        job = agent_state['job']
+        if job and time.monotonic() - job['started'] > 60:
+            agent_state['job'] = None
+            agent_state['error'] = 'Le scan a expiré sans réponse de la carte.'
+            job = None
+        if not job or job['claimed']:
+            return {}
+        job['claimed'] = True
+        return {'id':job['id'], 'kind':job['kind']}
+
+
+@app.post('/agent/result')
+async def agent_result(request: Request):
+    if not agent_authorized(request):
+        return HTMLResponse('Non autorisé', status_code=403)
+    try:
+        body = await request.json()
+    except ValueError:
+        return HTMLResponse('JSON invalide', status_code=400)
+    if not isinstance(body, dict):
+        return HTMLResponse('Message invalide', status_code=400)
+    with agent_lock:
+        job = agent_state['job']
+        if not job or not job['claimed'] or body.get('id') != job['id']:
+            return HTMLResponse('Scan inconnu', status_code=409)
+        if body.get('error'):
+            agent_state['error'] = 'Le dernier scan a échoué : vérifiez la connexion série et le firmware.'
+            agent_state['job'] = None
+            return {'ok':False}
+        items = body.get('items')
+        if not isinstance(items, list) or len(items) > 50 or not all(isinstance(item, dict) and len(item) <= 8 and all(isinstance(k, str) and len(k) <= 32 and isinstance(v, (str, int)) and len(str(v)) <= 256 for k, v in item.items()) for item in items):
+            return HTMLResponse('Résultats invalides', status_code=400)
+        try:
+            with db() as conn:
+                conn.execute('INSERT INTO radio_scans (kind,payload) VALUES (%s,%s::jsonb)', (job['kind'], json.dumps(items)))
+        except psycopg.Error:
+            LOG.warning('Impossible de sauvegarder le scan radio')
+            return HTMLResponse('Base indisponible', status_code=503)
+        agent_state['job'] = None
+    return {'ok':True}
 
 
 @app.get('/parametres')
