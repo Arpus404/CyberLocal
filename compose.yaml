@@ -3,4 +3,31 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql://cyberlocal:${POSTGRES_PASSWORD:?Configurez POSTGRES_PASSWORD dans .env}@db:5432/cyberlocal
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: cyberlocal
+      POSTGRES_USER: cyberlocal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configurez POSTGRES_PASSWORD dans .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyberlocal -d cyberlocal"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  clamav:
+    image: clamav/clamav:1.4
+    volumes:
+      - signatures:/var/lib/clamav
+    restart: unless-stopped
+volumes:
+  database:
+  signatures:
