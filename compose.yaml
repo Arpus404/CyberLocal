@@ -4,6 +4,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      ESP32_AGENT_TOKEN: ${ESP32_AGENT_TOKEN:-}
       DATABASE_URL: postgresql://cyberlocal:${POSTGRES_PASSWORD:?Configurez POSTGRES_PASSWORD dans .env}@db:5432/cyberlocal
     depends_on:
       db:
