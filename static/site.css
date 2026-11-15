@@ -1,1 +1,124 @@
-:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#09101b;color:#e6edf5}*{box-sizing:border-box}body{margin:0}header{padding:1.2rem 5%;background:#101b2b;border-bottom:1px solid #283a52}header strong{color:#5ee3cb}nav{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem}a{color:#81d9ff}nav a{text-decoration:none}main{max-width:1100px;margin:auto;padding:2rem 5%}h1{font-size:2rem}h2{font-size:1.1rem}p{line-height:1.55;color:#c4d2e1}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}article{background:#111d2c;border:1px solid #263b53;border-radius:12px;padding:1rem;margin:1rem 0;overflow-wrap:anywhere}form{margin:1rem 0;display:flex;gap:.7rem;flex-wrap:wrap;align-items:center}input,button{font:inherit;border:1px solid #38516b;border-radius:7px;padding:.65rem;background:#132438;color:#e6edf5}button{background:#1f7d75;cursor:pointer}button:hover{background:#27978c}code{overflow-wrap:anywhere}footer{padding:2rem 5%;color:#9db0c5;border-top:1px solid #263b53;font-size:.9rem}
+:root {
+    color-scheme: dark;
+    font-family: system-ui,sans-serif;
+    background: #09101b;
+    color: #e6edf5;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+header {
+    padding: 1.2rem 5%;
+    background: #101b2b;
+    border-bottom: 1px solid #283a52;
+}
+
+header strong {
+    color: #5ee3cb;
+}
+
+nav {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+a {
+    color: #81d9ff;
+}
+
+nav a {
+    text-decoration: none;
+}
+
+main {
+    max-width: 1100px;
+    margin: auto;
+    padding: 2rem 5%;
+}
+
+h1 {
+    font-size: 2rem;
+}
+
+h2 {
+    font-size: 1.1rem;
+}
+
+p {
+    line-height: 1.55;
+    color: #c4d2e1;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+    gap: 1rem;
+}
+
+article {
+    background: #111d2c;
+    border: 1px solid #263b53;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    overflow-wrap: anywhere;
+}
+
+.cve-card h3 {
+    margin-top: 1.5rem;
+}
+
+.cve-card ol,
+.cve-card ul {
+    line-height: 1.6;
+    padding-left: 1.5rem;
+}
+
+.cve-card li {
+    margin: 0.35rem 0;
+}
+
+form {
+    margin: 1rem 0;
+    display: flex;
+    gap: .7rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+input,button {
+    font: inherit;
+    border: 1px solid #38516b;
+    border-radius: 7px;
+    padding: .65rem;
+    background: #132438;
+    color: #e6edf5;
+}
+
+button {
+    background: #1f7d75;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #27978c;
+}
+
+code {
+    overflow-wrap: anywhere;
+}
+
+footer {
+    padding: 2rem 5%;
+    color: #9db0c5;
+    border-top: 1px solid #263b53;
+    font-size: .9rem;
+}

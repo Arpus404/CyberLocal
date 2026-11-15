@@ -1,6 +1,197 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Cyber Local — Tableau de bord</title><link rel="stylesheet" href="/static/style.css"></head><body>
-<aside><div class="brand"><span class="logo">◈</span><div>CYBER<span>LOCAL</span><small>PLATEFORME DE SÉCURITÉ</small></div></div><div class="navlabel">ESPACE DE TRAVAIL</div><nav aria-label="Navigation principale"><a class="active" href="#accueil">▦ <span>Tableau de bord</span></a><a href="#modules">⌕ <span>Analyse de fichier</span></a><a href="#modules">◇ <span>Vulnérabilités CVE</span></a><a href="#modules">⌁ <span>Scan Wi-Fi</span></a><a href="#modules">ᛒ <span>Scan Bluetooth</span></a><a href="#modules">◷ <span>Historique</span></a></nav><div class="side-bottom"><span class="dot"></span> Environnement local <small>Version initiale · 0.1</small></div></aside>
-<main id="accueil"><header><div class="breadcrumbs">ESPACE DE TRAVAIL <span>/</span> TABLEAU DE BORD</div><div class="local"><span class="dot"></span> LOCAL</div></header><section class="intro"><div><div class="eyebrow">◈ &nbsp; CENTRE DE CONTRÔLE</div><h1>Tableau de bord<span>.</span></h1><p>Votre espace local pour explorer et comprendre la cybersécurité.</p></div><div class="version">VERSION 01 <span>●</span> INITIALISATION</div></section>
-<section class="banner"><div class="banner-icon">✦</div><div><h2>Bienvenue sur Cyber Local</h2><p>La plateforme prend forme. Retrouvez ici l’état de votre application et les modules qui seront ajoutés progressivement.</p></div><span class="tag">PREMIÈRE VERSION</span></section>
-<div class="section-head"><div><div class="eyebrow">VUE D’ENSEMBLE</div><h2>État des services</h2></div><form action="/" method="get"><button type="submit">↻ &nbsp; Actualiser</button></form></div><div class="cards"><article><div class="cardtop"><span class="icon">◈</span><span class="badge" id="app-badge">{{application_badge}}</span></div><h3>Application web</h3><p>Serveur Python · FastAPI</p><div class="status" id="app-status">{{application_status}}</div></article><article><div class="cardtop"><span class="icon blue">⌬</span><span class="badge muted">À VENIR</span></div><h3>Antivirus</h3><p>Moteur d’analyse ClamAV</p><div class="status dim">Non installé</div></article><article><div class="cardtop"><span class="icon purple">▤</span><span class="badge muted">À VENIR</span></div><h3>Base de données</h3><p>Stockage des résultats</p><div class="status dim">Non installée</div></article><article><div class="cardtop"><span class="icon gold">⌁</span><span class="badge muted">À VENIR</span></div><h3>Carte ESP32</h3><p>Communication avec la carte</p><div class="status dim">Non configurée</div></article></div>
-<div class="section-head modules-head" id="modules"><div><div class="eyebrow">EXPLORER LA PLATEFORME</div><h2>Modules du projet</h2></div><span class="section-note">CONSTRUCTION PROGRESSIVE</span></div><div class="modules"><div class="module"><span class="module-icon">⌕</span><div><h3>Analyse de fichier</h3><p>Analyser un fichier avec ClamAV et consulter son empreinte.</p></div><span>BIENTÔT</span></div><div class="module"><span class="module-icon">◇</span><div><h3>Vulnérabilités CVE</h3><p>Rechercher des vulnérabilités et leurs sources officielles.</p></div><span>BIENTÔT</span></div><div class="module"><span class="module-icon">⌁</span><div><h3>Wi-Fi &amp; Bluetooth</h3><p>Observer les réseaux et appareils détectables avec votre ESP32.</p></div><span>BIENTÔT</span></div><div class="module"><span class="module-icon">◷</span><div><h3>Historique</h3><p>Retrouver les résultats des analyses et des scans.</p></div><span>BIENTÔT</span></div></div><footer><span>CYBER LOCAL <b> / </b> PROJET PÉDAGOGIQUE</span><span>Vos données restent sur votre ordinateur à cette étape.</span></footer></main></body></html>
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="dark">
+        <title>Cyber Local — Tableau de bord</title>
+        <link rel="stylesheet" href="/static/style.css">
+    </head>
+    <body>
+        <aside>
+            <div class="brand">
+                <span class="logo">◈</span>
+                <div>
+                    CYBER<span>LOCAL</span>
+                    <small>PLATEFORME DE SÉCURITÉ LOCALE</small>
+                </div>
+            </div>
+
+            <div class="navlabel">ESPACE DE TRAVAIL</div>
+            <nav aria-label="Navigation principale">
+                <a class="active" href="/">▦ <span>Tableau de bord</span></a>
+                <a href="/analyse">⌕ <span>Analyse de fichier</span></a>
+                <a href="/cve">◇ <span>Vulnérabilités CVE</span></a>
+                <a href="/esp32">⌁ <span>Scan Wi-Fi et Bluetooth</span></a>
+                <a href="/historique">◷ <span>Historique</span></a>
+                <a href="/parametres">⚙ <span>Paramètres</span></a>
+            </nav>
+
+            <div class="side-bottom">
+                <span class="dot"></span>
+                Environnement local
+                <small>Cyber Local · 0.3</small>
+            </div>
+        </aside>
+
+        <main id="accueil">
+            <header>
+                <div class="breadcrumbs">ESPACE DE TRAVAIL <span>/</span> TABLEAU DE BORD</div>
+                <div class="local"><span class="dot"></span> LOCAL</div>
+            </header>
+
+            <section class="intro">
+                <div>
+                    <div class="eyebrow">◈ &nbsp; CENTRE DE CONTRÔLE</div>
+                    <h1>Tableau de bord<span>.</span></h1>
+                    <p>Suivez les services et ouvrez les outils de Cyber Local.</p>
+                </div>
+                <div class="version">VERSION 03 <span>●</span> LOCAL</div>
+            </section>
+
+            <section class="banner">
+                <div class="banner-icon">✦</div>
+                <div>
+                    <h2>Bienvenue sur Cyber Local</h2>
+                    <p>
+                        Analyse de fichiers, consultation des CVE et scans radio
+                        depuis une interface locale.
+                    </p>
+                </div>
+                <span class="tag">PROJET PÉDAGOGIQUE</span>
+            </section>
+
+            <div class="section-head">
+                <div>
+                    <div class="eyebrow">VUE D’ENSEMBLE</div>
+                    <h2>État des services</h2>
+                </div>
+                <button id="refresh" type="button">↻ &nbsp; Actualiser</button>
+            </div>
+
+            <div class="cards">
+                <article>
+                    <div class="cardtop">
+                        <span class="icon">◈</span>
+                        <span class="badge" id="app-badge">VÉRIFICATION</span>
+                    </div>
+                    <h3>Application web</h3>
+                    <p>Serveur Python · FastAPI</p>
+                    <div class="status" id="app-status">Connexion au serveur…</div>
+                </article>
+
+                <article>
+                    <div class="cardtop">
+                        <span class="icon blue">⌬</span>
+                        <span class="badge muted" id="antivirus-badge">VÉRIFICATION</span>
+                    </div>
+                    <h3>Antivirus</h3>
+                    <p>Moteur d’analyse ClamAV local</p>
+                    <div class="status dim" id="antivirus-status">État inconnu</div>
+                </article>
+
+                <article>
+                    <div class="cardtop">
+                        <span class="icon purple">▤</span>
+                        <span class="badge muted" id="database-badge">VÉRIFICATION</span>
+                    </div>
+                    <h3>Base de données</h3>
+                    <p>PostgreSQL · résultats conservés localement</p>
+                    <div class="status dim" id="database-status">État inconnu</div>
+                </article>
+
+                <article>
+                    <div class="cardtop">
+                        <span class="icon gold">⌁</span>
+                        <span class="badge muted" id="esp32-badge">VÉRIFICATION</span>
+                    </div>
+                    <h3>Agent ESP32</h3>
+                    <p>Connexion série USB</p>
+                    <div class="status dim" id="esp32-status">État inconnu</div>
+                </article>
+            </div>
+
+            <div class="section-head">
+                <div>
+                    <div class="eyebrow">ACTIVITÉ ENREGISTRÉE</div>
+                    <h2>Résultats conservés</h2>
+                </div>
+            </div>
+
+            <div class="cards metrics">
+                <article>
+                    <h3>Analyses de fichiers</h3>
+                    <div class="metric" id="analysis-count">—</div>
+                </article>
+                <article>
+                    <h3>Menaces détectées</h3>
+                    <div class="metric" id="threat-count">—</div>
+                </article>
+                <article>
+                    <h3>CVE enregistrées</h3>
+                    <div class="metric" id="cve-count">—</div>
+                </article>
+                <article>
+                    <h3>Scans radio terminés</h3>
+                    <div class="metric" id="radio-count">—</div>
+                </article>
+            </div>
+
+            <div class="section-head modules-head" id="modules">
+                <div>
+                    <div class="eyebrow">EXPLORER LA PLATEFORME</div>
+                    <h2>Modules</h2>
+                </div>
+                <span class="section-note">OUTILS LOCAUX</span>
+            </div>
+
+            <div class="modules">
+                <a class="module" href="/analyse">
+                    <span class="module-icon">⌕</span>
+                    <span class="module-copy">
+                        <strong>Analyse de fichier</strong>
+                        <span>Analyse locale avec ClamAV et empreinte SHA-256.</span>
+                    </span>
+                    <span>OUVRIR</span>
+                </a>
+
+                <a class="module" href="/cve">
+                    <span class="module-icon">◇</span>
+                    <span class="module-copy">
+                        <strong>Vulnérabilités CVE</strong>
+                        <span>Recherche NVD, références officielles et pistes de correction.</span>
+                    </span>
+                    <span>OUVRIR</span>
+                </a>
+
+                <a class="module" href="/esp32">
+                    <span class="module-icon">⌁</span>
+                    <span class="module-copy">
+                        <strong>Wi-Fi et Bluetooth</strong>
+                        <span>Scans 2,4 GHz et BLE via un ESP32 connecté en USB.</span>
+                    </span>
+                    <span>OUVRIR</span>
+                </a>
+
+                <a class="module" href="/historique">
+                    <span class="module-icon">◷</span>
+                    <span class="module-copy">
+                        <strong>Historique</strong>
+                        <span>Consulter les analyses de fichiers enregistrées.</span>
+                    </span>
+                    <span>OUVRIR</span>
+                </a>
+            </div>
+
+            <footer>
+                <span>CYBER LOCAL <b> / </b> PROJET PÉDAGOGIQUE</span>
+                <span>
+                    Fichiers analysés localement ; les recherches NVD utilisent
+                    Internet sur demande.
+                </span>
+            </footer>
+        </main>
+
+        <script src="/static/app.js"></script>
+    </body>
+</html>

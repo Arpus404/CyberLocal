@@ -1,11 +1,27 @@
 # Cyber Local
 
-Plateforme pédagogique locale pilotée par Python (FastAPI). Cette version apporte la consultation CVE NVD, l’analyse de fichier avec ClamAV et l’historique dans PostgreSQL. Un agent Windows et un firmware ESP32 classique sont fournis pour les scans Wi-Fi et BLE ; ils nécessitent une installation et des essais sur la carte.
+Cyber Local est une application pédagogique locale écrite en Python avec
+FastAPI. Elle réunit l’analyse de fichiers avec ClamAV, la recherche de CVE,
+l’historique PostgreSQL et des scans Wi-Fi/BLE réalisés par un ESP32 connecté
+en USB.
 
-## Mise en route sur Windows
+L’application ne contient pas d’intégration à un modèle d’IA. Les pistes de
+correction des CVE sont produites par des règles explicites à partir de la
+gravité, des avis éditeurs repérés par la NVD et, lorsqu’elle est présente,
+de l’action requise publiée par la CISA.
 
-1. Installer et démarrer Docker Desktop. Télécharger le projet et ouvrir un PowerShell dans son dossier.
-2. Créer un fichier `.env` à partir du modèle et générer un secret hexadécimal (il ne faut pas publier ce fichier) :
+## Démarrer sous Windows
+
+### Prérequis
+
+- Windows 10 ou 11 ;
+- Docker Desktop démarré avec le moteur Linux ;
+- Git pour cloner et mettre à jour le dépôt.
+
+### Lancer les services
+
+Depuis PowerShell, dans le dossier du projet, créez `.env` depuis le modèle
+et remplacez le mot de passe PostgreSQL par une valeur aléatoire :
 
 ```powershell
 Copy-Item .env.example .env
@@ -18,58 +34,173 @@ Set-Content -Path .env -Value "POSTGRES_PASSWORD=$secret"
 docker compose up --build -d
 ```
 
-3. Ouvrir http://localhost:8000. Le premier démarrage nécessite Internet pour télécharger les images, les dépendances et les signatures antivirus. ClamAV peut mettre plusieurs minutes à démarrer : pendant ce temps l’analyse indique un échec, jamais un fichier sûr.
-4. Consulter les services avec `docker compose ps` et les journaux avec `docker compose logs --tail=100`. `docker compose down` arrête et supprime les conteneurs et le réseau, mais conserve les volumes. Ne pas utiliser `docker compose down -v` sauf si vous voulez effacer les résultats PostgreSQL et les signatures stockées.
+Ouvrez <http://localhost:8000>. Le premier démarrage télécharge les images
+Docker, les dépendances et les signatures ClamAV. ClamAV peut prendre quelques
+minutes avant d’être prêt ; son absence ne produit jamais un résultat « sain ».
 
-Le mot de passe PostgreSQL est défini lors de l’initialisation du volume. Le modifier uniquement dans `.env` ne change pas le mot de passe dans une base déjà créée. Il faut utiliser une procédure de changement de mot de passe PostgreSQL ; ne supprimez pas le volume pour résoudre ce problème sans sauvegarder vos données.
+Consultez l’état des conteneurs et les journaux :
 
-## Utilisation et limites
+```powershell
+docker compose ps
+docker compose logs --tail=100
+```
 
-- **Analyse** : fichier de 20 Mio maximum, traité temporairement et jamais exécuté ni conservé volontairement. Le serveur peut utiliser un fichier temporaire pendant l’envoi, puis le ferme ; un arrêt brutal peut laisser des fichiers temporaires. SHA-256 et résultat enregistrés. ClamAV envoie ses résultats à l’application ; aucune transmission du fichier à un service externe. Les réponses sans détection sont volontairement classées **analyse incomplète** : les limites d’analyse d’archives, fichiers chiffrés et signatures ne sont pas encore vérifiées. Un résultat négatif ne prouve pas l’absence de malware.
-- **CVE** : la recherche locale fonctionne sur les résultats déjà enregistrés. Le bouton NVD envoie le terme de recherche sur Internet et enregistre au maximum 20 résultats. Pas de pagination NVD, synchronisation incrémentale, filtre produit/version structuré ou recommandations automatiques dans cette version. Consultez les avis officiels liés avant d’appliquer un correctif. La disponibilité de la NVD dépend de ses limites de requêtes.
-- **Historique** : dernières 100 analyses. Le bouton de suppression efface tous les résultats d’analyse, sans supprimer les CVE. Pas de durée de conservation automatique ni de pagination pour l’instant.
-- **ESP32** : agent et firmware prévus pour ESP32 classique, à vérifier sur le matériel. Les résultats de scans sont enregistrés dans PostgreSQL. Aucun scan simulé ne se fait passer pour réel. Les résultats radio peuvent être supprimés depuis la page Wi-Fi et Bluetooth ; la conservation automatique reste à développer.
-- **Sécurité** : le port web est lié à 127.0.0.1, les autres services ne publient pas de port. Ne pas exposer l’application sur Internet. Aucun compte utilisateur n’est prévu ; toute personne ayant accès à la session locale du navigateur peut utiliser l’application. La base et le cache CVE peuvent contenir des informations sensibles.
+`docker compose down` arrête les services et conserve les données. La commande
+`docker compose down -v` supprime aussi les résultats PostgreSQL et les
+signatures ClamAV.
 
-## Recette simple
+Le mot de passe PostgreSQL est fixé lors de la création du volume. Modifier
+`.env` ensuite ne change pas le mot de passe déjà enregistré dans PostgreSQL.
+Sauvegardez les données avant toute opération de réinitialisation.
 
-1. Ouvrir le tableau de bord et vérifier que la base est connectée.
-2. Analyser un petit fichier texte : son empreinte et un résultat doivent s’afficher et être enregistrés dans l’historique. Sans détection, le statut est « Analyse incomplète ».
-3. Tester avec le fichier officiel de test EICAR téléchargé depuis eicar.org : le résultat attendu est « Menace détectée ». Ne pas envoyer de véritable logiciel malveillant.
-4. Arrêter uniquement ClamAV avec `docker compose stop clamav`, analyser à nouveau un fichier et vérifier « Échec de l’analyse », puis redémarrer avec `docker compose start clamav`.
-5. Chercher une CVE connue avec le bouton NVD, puis rechercher son identifiant en local. Tester à nouveau la recherche locale sans accès Internet.
-6. Vérifier l’historique et sa suppression uniquement si vous souhaitez effacer toutes les analyses enregistrées.
+## Fonctions
 
-Tests unitaires des fonctions sans accès réseau : `python -m unittest discover -s tests`. Ils utilisent un faux moteur et une fausse réponse NVD ; ils ne remplacent pas les essais Docker réels et EICAR.
+### Analyse de fichier
 
-## Architecture
+- Limite d’envoi : 20 Mio.
+- Le fichier est transmis au conteneur ClamAV du réseau Docker interne ; il
+  n’est pas exécuté ni enregistré volontairement.
+- PostgreSQL conserve le nom, la taille, l’empreinte SHA-256, le résultat,
+  le détail et la date de l’analyse.
+- Les résultats possibles sont **Menace détectée**, **Analyse incomplète** et
+  **Échec de l’analyse**. Une absence de détection ne prouve pas qu’un fichier
+  est sain.
+- Le serveur peut utiliser un fichier temporaire lors de l’envoi. Un arrêt
+  brutal peut laisser ce fichier temporaire sur le disque.
 
-Navigateur → FastAPI/Python → PostgreSQL pour les métadonnées, ClamAV pour l’analyse locale, NVD pour les recherches explicitement demandées. Les fichiers ne sont pas enregistrés en base. Les services communiquent sur un réseau Docker interne. ClamAV télécharge ses signatures ; la NVD est contactée uniquement sur demande.
+### CVE et pistes de correction
 
-## Installer l’ESP32 classique (première configuration)
+- La recherche locale consulte les CVE déjà enregistrées.
+- Une recherche NVD est lancée uniquement après un clic explicite ; elle
+  enregistre jusqu’à 20 résultats par requête.
+- Les fiches affichent le score CVSS, la description et les références. La
+  page ajoute des étapes de correction fondées sur la gravité, les références
+  marquées comme avis éditeur ou correctif et l’action CISA lorsqu’elle est
+  fournie.
+- Cyber Local ne connaît pas les logiciels ni les versions installés. Les
+  étapes sont des pistes : vérifiez l’applicabilité et le correctif dans l’avis
+  officiel de l’éditeur. L’application ne déduit pas une version corrigée et ne
+  modifie aucun système.
+- Les recherches dépendent de la disponibilité et des limites de requêtes de
+  la NVD. Il n’y a pas encore de pagination, de synchronisation automatique
+  ni d’inventaire logiciel.
 
-Le firmware cible une carte **ESP32 Dev Module** avec le paquet Arduino ESP32 **2.0.17** et la bibliothèque **ArduinoJson 6.21.5**. Dans Arduino IDE, installez ces versions via les gestionnaires de cartes et de bibliothèques. Ouvrez `firmware/CyberLocal/CyberLocal.ino`, sélectionnez la carte et le port COM, puis téléversez. Le scan Wi-Fi est limité à 2,4 GHz et le Bluetooth à BLE passif : les appareils silencieux peuvent être absents, leurs adresses peuvent changer ; une détection ne prouve pas une vulnérabilité.
+### Wi-Fi et Bluetooth
 
-Sur Windows, installer Python et pyserial, puis créer un secret distinct pour l’agent. Dans PowerShell, depuis le dossier du projet (et uniquement si `ESP32_AGENT_TOKEN` n’est pas déjà défini dans `.env`) :
+- Un ESP32 classique est relié à l’ordinateur par USB et communiqué par un
+  agent Windows en série.
+- Le firmware relève les réseaux Wi-Fi 2,4 GHz et les annonces Bluetooth Low
+  Energy (BLE) en écoute passive ; il ne tente pas d’authentification ni
+  d’exploitation.
+- Un scan peut enregistrer jusqu’à 50 résultats. PostgreSQL conserve chaque
+  demande avec son type, son état, son erreur éventuelle, ses résultats et ses
+  dates. Les demandes refusées faute d’agent et les expirations sont aussi
+  enregistrées quand la base est disponible.
+- Les scans ne sont pas une preuve de vulnérabilité. Des appareils silencieux
+  peuvent être absents et les adresses BLE peuvent changer.
+- Les résultats radio sont supprimables depuis la page Wi-Fi et Bluetooth.
+
+### Historique et conservation
+
+Les analyses, les résultats de scans radio et les CVE reçues sont conservés
+dans PostgreSQL jusqu’à suppression administrative ou suppression du volume. La page
+d’historique affiche les 100 dernières analyses de fichier ; la page radio
+affiche les 20 derniers enregistrements. Ces limites d’affichage ne suppriment
+pas les lignes plus anciennes de la base.
+
+## Installer l’ESP32
+
+Le firmware vise une carte **ESP32 Dev Module**, le paquet Arduino ESP32
+**2.0.17** et ArduinoJson **6.21.5**.
+
+1. Installez ces versions depuis les gestionnaires de cartes et de bibliothèques
+   de l’Arduino IDE.
+2. Ouvrez `firmware/CyberLocal/CyberLocal.ino`, sélectionnez ESP32 Dev Module
+   et le port COM, puis téléversez le firmware.
+3. Dans PowerShell, installez pyserial et créez un secret agent distinct de
+   celui de PostgreSQL :
 
 ```powershell
 py -m pip install -r agent/requirements.txt
-$b = New-Object byte[] 32
-$r = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-$r.GetBytes($b)
-$r.Dispose()
-$t = ([BitConverter]::ToString($b) -replace '-', '').ToLower()
-Add-Content -Path .env -Value "ESP32_AGENT_TOKEN=$t"
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
+$token = ([BitConverter]::ToString($bytes) -replace "-", "").ToLower()
+Add-Content -Path .env -Value "ESP32_AGENT_TOKEN=$token"
 docker compose up -d
 ```
 
-Ne modifiez pas `POSTGRES_PASSWORD`. Lancez ensuite l’agent en utilisant le même secret depuis le fichier `.env` sans l’afficher :
+4. Remplacez `COM3` par le port indiqué par Windows ou l’Arduino IDE, puis
+   démarrez l’agent sans afficher le secret :
 
 ```powershell
-$env:CYBERLOCAL_AGENT_TOKEN = ((Get-Content .env | Where-Object { $_ -match '^ESP32_AGENT_TOKEN=' } | Select-Object -Last 1) -replace '^ESP32_AGENT_TOKEN=', '')
+$env:CYBERLOCAL_AGENT_TOKEN = (
+    (Get-Content .env | Where-Object { $_ -match '^ESP32_AGENT_TOKEN=' } |
+        Select-Object -Last 1) -replace '^ESP32_AGENT_TOKEN=', ''
+)
 py agent/agent.py --port COM3
 ```
 
-Remplacez `COM3` par le port indiqué dans le gestionnaire de périphériques Windows ou Arduino IDE. Gardez cette fenêtre ouverte ; Ctrl+C arrête l’agent. Dans le site, ouvrir Wi-Fi et Bluetooth, lancer un scan puis actualiser la page. Un scan s’exécute à la fois. En cas de port occupé, fermer le moniteur série Arduino ; vérifier le câble de données et le pilote si le port est absent. Un redémarrage du serveur ou de l’agent pendant un scan peut l’interrompre. Les résultats sont limités à 50 par scan.
+Gardez cette fenêtre ouverte pendant les scans. Fermez le moniteur série de
+l’Arduino IDE si le port COM est occupé. Un seul scan peut s’exécuter à la fois.
+L’agent conserve le résultat en mémoire et réessaie de l’enregistrer si
+l’application locale répond temporairement avec une erreur serveur.
 
-Le port web reste local ; l’agent ouvre le port COM et interroge l’application locale avec un secret. Aucun port entrant n’est ouvert par l’agent. Le secret local doit rester privé. Le firmware et les scans n’ont pas encore été testés sur une carte physique.
+## Vérification avant remise
+
+La suite unitaire existante peut être lancée depuis le dossier du projet :
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Elle utilise des réponses réseau et série simulées. Elle ne remplace pas les
+vérifications suivantes en environnement réel :
+
+1. Vérifier que Docker Desktop démarre les trois services et que l’interface
+   indique PostgreSQL connecté et ClamAV prêt.
+2. Analyser un fichier texte et vérifier que le résultat et l’empreinte sont
+   enregistrés.
+3. Utiliser uniquement le fichier de test officiel EICAR pour vérifier le cas
+   « Menace détectée ». Ne pas utiliser de vrai logiciel malveillant.
+4. Interrompre ClamAV, analyser un fichier de test et vérifier que le résultat
+   indique un échec ; redémarrer ensuite ClamAV.
+5. Rechercher une CVE sur la NVD, vérifier les références et pistes proposées,
+   puis relancer une recherche locale hors ligne.
+6. Avec une carte ESP32 connectée, vérifier la détection du port, le message
+   de connexion, un scan Wi-Fi, un scan BLE et l’enregistrement des résultats
+   et des échecs dans PostgreSQL.
+
+La carte ESP32 et les services réels doivent être validés sur le matériel et
+l’ordinateur de remise. Aucun résultat de test matériel ne doit être déclaré
+avant cette vérification.
+
+## Architecture
+
+```text
+Navigateur local
+      │
+      ▼
+FastAPI ───── PostgreSQL (analyses, CVE, scans radio)
+   │  │
+   │  └────── ClamAV (analyse locale de fichiers)
+   │
+   └──────── NVD (recherche déclenchée par l’utilisateur)
+
+ESP32 ◄──── USB série ──── Agent Windows ──── FastAPI local
+```
+
+Docker Compose lie l’interface à `127.0.0.1:8000`. Les services PostgreSQL
+et ClamAV ne publient pas de port sur l’ordinateur. Il n’y a pas de compte
+utilisateur : toute personne ayant accès à la session locale peut utiliser
+l’application. **Ne publiez pas le serveur sur Internet.**
+
+## Git et secrets
+
+- `.env` est exclu par `.gitignore` ; ne publiez jamais les secrets qu’il
+  contient.
+- `.env.example` ne contient que des valeurs de remplacement.
+- La liste des prompts IA utilisés pour cadrer et modifier ce projet est
+  conservée dans [`docs/PROMPTS_IA.md`](docs/PROMPTS_IA.md).
+- Le code source est formaté pour rester lisible dans GitHub et dans un éditeur.
