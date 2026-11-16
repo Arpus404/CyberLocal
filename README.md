@@ -1,4 +1,4 @@
-# Cyber Local — première version
+# Sentinel — première version
 
 Un premier tableau de bord local piloté par Python (FastAPI). Le serveur affiche le site et fournit `/api/status`. L'antivirus, la base de données, les CVE et l'ESP32 ne sont pas encore implémentés : les mentions « à venir » ne représentent aucun scan.
 
